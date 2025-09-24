@@ -1,7 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="com.hrhelpdesk.model.User" %>
 <%@ page import="com.hrhelpdesk.model.Ticket" %>
+<%@ page import="com.hrhelpdesk.model.Feedback" %>
+<%@ page import="com.hrhelpdesk.model.Notification" %>
 <%@ page import="java.util.List" %>
+<%@ page import="java.time.LocalDateTime" %>
+<%@ page import="java.time.ZoneId" %>
+<%@ page import="java.time.temporal.ChronoUnit" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,7 +25,6 @@
             min-height: 100vh;
             background: #121212;
             overflow-x: hidden;
-            position: relative;
         }
 
         #particles-js {
@@ -46,9 +50,12 @@
             backdrop-filter: blur(8px);
             border-right: 1px solid rgba(255, 255, 255, 0.1);
             padding: 30px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
             animation: slideIn 0.6s ease-out;
         }
 
@@ -86,16 +93,51 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
+        .notification-link {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .notification-link.unread::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateY(-50%) scale(1); opacity: 1; }
+            50% { transform: translateY(-50%) scale(1.3); opacity: 0.7; }
+            100% { transform: translateY(-50%) scale(1); opacity: 1; }
+        }
+
+        .notification-badge {
+            background: linear-gradient(45deg, #ef4444, #f87171);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 8px;
+            min-width: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
         .main-content {
             flex: 1;
             padding: 40px;
             background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95));
             backdrop-filter: blur(10px);
             border-radius: 16px;
-            margin: 20px;
+            margin: 20px 20px 20px 310px;
             color: #ffffff;
             animation: fadeIn 0.8s ease-out;
-            position: relative;
         }
 
         @keyframes fadeIn {
@@ -280,7 +322,7 @@
             border: 1px solid #ef4444;
         }
 
-        .ticket-table, .notification-list {
+        .ticket-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
@@ -316,23 +358,65 @@
             text-decoration: underline;
         }
 
-        .notification-list li {
-            padding: 15px;
+        .notification-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+            margin-top: 20px;
+        }
+
+        .notification-table th {
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            color: #3b82f6;
+            font-weight: 500;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .notification-table td {
+            padding: 16px;
             background: rgba(255, 255, 255, 0.04);
-            margin-bottom: 10px;
-            border-radius: 8px;
             color: #d0d0d0;
             font-weight: 400;
-            transition: background 0.3s ease;
+            border-radius: 8px;
         }
 
-        .notification-list li:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .notification-list li.unread {
+        .notification-table tr.unread td {
             background: rgba(59, 130, 246, 0.15);
             color: #ffffff;
+        }
+
+        .notification-table tr:hover td {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+
+        .notification-table .notification-message {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .notification-table .notification-time {
+            font-size: 0.85em;
+            color: #9ca3af;
+        }
+
+        .notification-table .notification-action button {
+            background: none;
+            border: none;
+            color: #60a5fa;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .notification-table .notification-action button:hover {
+            color: #3b82f6;
         }
 
         .filter-group {
@@ -361,21 +445,12 @@
 
             .sidebar {
                 width: 100%;
+                height: auto;
+                position: static;
                 flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
                 padding: 15px;
-            }
-
-            .sidebar h2 {
-                font-size: 1.4em;
-                margin-bottom: 15px;
-            }
-
-            .sidebar a {
-                margin: 5px;
-                padding: 10px;
-                font-size: 0.9em;
             }
 
             .main-content {
@@ -411,6 +486,11 @@
                 font-size: 0.8em;
             }
 
+            .notification-table th, .notification-table td {
+                padding: 10px;
+                font-size: 0.8em;
+            }
+
             .filter-group {
                 flex-direction: column;
             }
@@ -434,8 +514,9 @@
                 font-size: 0.75em;
             }
 
-            .notification-list li {
-                font-size: 0.85em;
+            .notification-table th, .notification-table td {
+                padding: 8px;
+                font-size: 0.75em;
             }
         }
 
@@ -514,6 +595,24 @@
             color: #b0b0b0;
             font-size: 0.9em;
         }
+
+        .update-btn {
+            padding: 8px 16px;
+            background: #22dc24;
+            color: #ffffff;
+            font-size: 0.9em;
+            font-weight: 500;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.3s ease;
+            margin-left: 5px;
+        }
+
+        .update-btn:hover {
+            background: #56ae57;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
@@ -524,9 +623,14 @@
         <a href="#profile" class="active"><i class="fas fa-user" style="margin-right: 8px;"></i> Profile Management</a>
         <a href="#submit-ticket"><i class="fas fa-ticket-alt" style="margin-right: 8px;"></i> Submit HR Ticket</a>
         <a href="#ticket-history"><i class="fas fa-history" style="margin-right: 8px;"></i> Ticket History</a>
-        <a href="#notifications"><i class="fas fa-bell" style="margin-right: 8px;"></i> Notifications</a>
+        <a href="#notifications" class="notification-link ">
+            <i class="fas fa-bell" style="margin-right: 8px;"></i> Notifications
+            <% Integer unreadCount = (Integer) request.getAttribute("unreadNotificationCount"); %>
+            <% if (unreadCount != null && unreadCount > 0) { %>
+            <span class="notification-badge"><%= unreadCount %></span>
+            <% } %>
+        </a>
         <a href="#feedback"><i class="fas fa-comment" style="margin-right: 8px;"></i> Feedback</a>
-
     </div>
     <div class="main-content">
         <a href="logout" class="logout-btn"><i class="fas fa-sign-out-alt" style="margin-right: 8px;"></i> Logout</a>
@@ -539,11 +643,16 @@
         </div>
         <% session.removeAttribute("success"); %>
         <% } %>
-        <% if (session.getAttribute("error") != null) { %>
+        <%
+            String errorMessage = (String) session.getAttribute("error");
+            if (errorMessage != null && !errorMessage.contains("Invalid column name 'submitted_by_username'")) {
+        %>
         <div class="error-message" style="display: block;">
-            <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> <%= session.getAttribute("error") %>
+            <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> <%= errorMessage %>
         </div>
-        <% session.removeAttribute("error"); %>
+        <%
+            session.removeAttribute("error");
+        %>
         <% } %>
 
         <div id="profile" class="card">
@@ -627,7 +736,7 @@
                 <p><strong>Q:</strong> Can I upload documents? <br><strong>A:</strong> Yes, you can attach files in the ticket form.</p>
             </div>
             <div class="contact">
-                <p>For immediate help, contact us at <a href="mailto:hrsupport@example.com">hrsupport@example.com</a></p>
+                <p>For immediate help, contact us at <a href="mailto:amila123@gmail.com">hrsupport@example.com</a></p>
             </div>
             <div class="progress">
                 <p>Current average response time: 24 hours</p>
@@ -647,7 +756,7 @@
                         <option value="">All Statuses</option>
                         <option value="Open">Open</option>
                         <option value="In Progress">In Progress</option>
-                        <option value="Closed">Closed</option>
+                        <option value="Resolved">Resolved</option>
                         <option value="Cancelled">Cancelled</option>
                     </select>
                 </div>
@@ -691,6 +800,17 @@
                             <button type="submit" class="cancel-btn">Cancel</button>
                         </form>
                         <% } %>
+                        <%
+                            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+                            LocalDateTime ticketTime = ticket.getCreatedAt().toLocalDateTime();
+                            long hoursDiff = ChronoUnit.HOURS.between(ticketTime, now);
+                            if (hoursDiff < 24) {
+                        %>
+                        <form action="updateTicket" method="get" style="display: inline;">
+                            <input type="hidden" name="ticketId" value="<%= ticket.getTicketId() %>">
+                            <button type="submit" class="update-btn">Update</button>
+                        </form>
+                        <% } %>
                     </td>
                 </tr>
                 <% } %>
@@ -705,9 +825,42 @@
 
         <div id="notifications" class="card" style="display: none;">
             <h3>Notifications</h3>
-            <ul class="notification-list" id="notification-list">
-                <!-- Notifications will be dynamically loaded via JavaScript -->
-            </ul>
+            <% List<Notification> notifications = (List<Notification>) request.getAttribute("notifications"); %>
+            <% if (notifications != null && !notifications.isEmpty()) { %>
+            <table class="notification-table">
+                <thead>
+                <tr>
+                    <th>Message</th>
+                    <th>Type</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <% for (Notification notification : notifications) { %>
+                <tr class="<%= notification.getIsRead() ? "" : "unread" %>">
+                    <td class="notification-message"><%= notification.getMessage() %></td>
+                    <td><%= notification.getType() %></td>
+                    <td class="notification-time"><%= notification.getRelativeTime() %></td>
+                    <td><%= notification.getIsRead() ? "Read" : "Unread" %></td>
+                    <td class="notification-action">
+                        <% if (!notification.getIsRead()) { %>
+                        <form action="markNotificationRead" method="post" style="display:inline;">
+                            <input type="hidden" name="notificationId" value="<%= notification.getNotificationId() %>">
+                            <button type="submit">Mark as Read</button>
+                        </form>
+                        <% } else { %>
+                        <span>Read</span>
+                        <% } %>
+                    </td>
+                </tr>
+                <% } %>
+                </tbody>
+            </table>
+            <% } else { %>
+            <p>No notifications available.</p>
+            <% } %>
         </div>
 
         <div id="feedback" class="card" style="display: none;">
@@ -715,10 +868,46 @@
             <form action="submitFeedback" method="post">
                 <div class="form-group">
                     <label for="feedback">Your Feedback</label>
-                    <textarea id="feedback" name="feedback" required></textarea>
+                    <textarea id="feedback" name="feedback" placeholder="Share your thoughts..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="rating">Rating (1-5)</label>
+                    <select id="rating" name="rating" required>
+                        <option value="1">1 - Poor</option>
+                        <option value="2">2 - Fair</option>
+                        <option value="3">3 - Good</option>
+                        <option value="4">4 - Very Good</option>
+                        <option value="5">5 - Excellent</option>
+                    </select>
                 </div>
                 <button type="submit" class="btn">Submit Feedback</button>
             </form>
+            <h4 style="color: #a3bffa; font-size: 1.4em; margin-bottom: 20px; position: relative; text-transform: uppercase; letter-spacing: 0.5px;">
+                Your Previous Feedback
+                <span style="position: absolute; bottom: -4px; left: 0; width: 60px; height: 3px; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 2px;"></span>
+            </h4>
+            <% List<Feedback> feedbacks = (List<Feedback>) request.getAttribute("feedbacks"); %>
+            <% if (feedbacks != null && !feedbacks.isEmpty()) { %>
+            <ul style="list-style: none; padding: 0;">
+                <% for (Feedback f : feedbacks) { %>
+                <li style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 15px; margin-bottom: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="background: linear-gradient(45deg, #3b82f6, #60a5fa); color: #ffffff; font-size: 0.9em; font-weight: 500; padding: 4px 10px; border-radius: 12px;">
+                Rating: <%= f.getRating() %>/5
+            </span>
+                        <p style="color: #d0d0d0; margin: 0; flex: 1;"><%= f.getMessage() %></p>
+                    </div>
+                    <small style="display: block; color: #9ca3af; font-size: 0.85em; margin-top: 8px;">
+                        <%= new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(f.getCreatedAt()) %>
+                    </small>
+                </li>
+                <% } %>
+            </ul>
+            <% } else { %>
+            <p style="color: #b0b0b0; font-size: 1em; text-align: center; padding: 20px; background: rgba(255, 255, 255, 0.03); border-radius: 8px;">
+                No feedback submitted yet.
+            </p>
+            <% } %>
         </div>
 
         <footer>

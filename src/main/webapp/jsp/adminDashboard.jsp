@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - HR Help Desk</title>
   <style>
+    /* Same styles as provided in Code 2 */
     * {
       margin: 0;
       padding: 0;
@@ -73,7 +74,7 @@
     }
 
     .form-container, .table-container {
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(18, 18, 18, 0.87);
       border-radius: 12px;
       padding: 32px;
       margin-bottom: 32px;
@@ -315,6 +316,38 @@
         deptSelect.value = ""; // Clear department if Management
       }
     }
+
+    function validatePhoneNumbers(phoneInput) {
+      const phonePattern = /^(07\d{8})(, ?(07\d{8}))*$/;
+      if (phoneInput.value && !phonePattern.test(phoneInput.value)) {
+        alert("Please enter valid Sri Lankan mobile numbers (e.g., 0772343345 or 077-123-4567, but use plain digits for simplicity, comma-separated for multiple).");
+        phoneInput.focus();
+        return false;
+      }
+      return true;
+    }
+
+    // Attach validation to form submissions
+    document.addEventListener('DOMContentLoaded', function () {
+      const addForm = document.querySelector('form[action="adminDashboard"][method="post"]');
+      const updateForm = document.querySelector('form[action="adminDashboard"][method="post"] .update-button').form;
+
+      addForm.addEventListener('submit', function (event) {
+        const phoneInput = document.getElementById('phone_numbers');
+        if (!validatePhoneNumbers(phoneInput)) {
+          event.preventDefault();
+        }
+      });
+
+      if (updateForm) {
+        updateForm.addEventListener('submit', function (event) {
+          const phoneInput = document.getElementById('update_phone_numbers');
+          if (!validatePhoneNumbers(phoneInput)) {
+            event.preventDefault();
+          }
+        });
+      }
+    });
   </script>
 </head>
 <body>
@@ -373,7 +406,7 @@
       </div>
       <div>
         <label for="phone_numbers">Phone Numbers (comma-separated)</label>
-        <input type="text" id="phone_numbers" name="phone_numbers">
+        <input type="text" id="phone_numbers" name="phone_numbers" placeholder="e.g., 0772343345 ,077-123-4567" title="Enter valid phone numbers, comma-separated (e.g., 077-7676777)" pattern="^(\+?\d{1,3}[-]?\d{3}[-]?\d{3}[-]?\d{4}(,\s*\+?\d{1,3}[-]?\d{3}[-]?\d{3}[-]?\d{4})*)$">
       </div>
       <div>
         <label for="address">Address</label>
@@ -432,7 +465,7 @@
             <td>${searchedUser.lastName}</td>
             <td>${searchedUser.deptName != null ? searchedUser.deptName : 'N/A'}</td>
             <td>${searchedUser.jobTitle}</td>
-            <td>${searchedUser.phoneNumbers}</td>
+            <td>${searchedUser.phoneNumbers != null ? searchedUser.phoneNumbers : 'N/A'}</td>
             <td>${searchedUser.address}</td>
             <td>
               <c:forEach var="role" items="${roles}">
@@ -479,7 +512,7 @@
           </div>
           <div>
             <label for="update_phone_numbers">Phone Numbers (comma-separated)</label>
-            <input type="text" id="update_phone_numbers" name="phone_numbers" value="${searchedUser.phoneNumbers}">
+            <input type="text" id="update_phone_numbers" name="phone_numbers" value="${searchedUser.phoneNumbers != null ? searchedUser.phoneNumbers : ''}" placeholder="e.g., 0772343345 , 077-123-4567" title="Enter valid phone numbers, comma-separated (e.g., 0772343345 )" pattern="^(\+?\d{1,3}[-]?\d{3}[-]?\d{3}[-]?\d{4}(,\s*\+?\d{1,3}[-]?\d{3}[-]?\d{3}[-]?\d{4})*)$">
           </div>
           <div>
             <label for="update_address">Address</label>
@@ -533,7 +566,6 @@
         <th>Department</th>
         <th>Job Title</th>
         <th>Phone Numbers</th>
-        <th>Address</th>
         <th>Role</th>
       </tr>
       </thead>
@@ -547,8 +579,7 @@
           <td>${user.lastName}</td>
           <td>${user.deptName != null ? user.deptName : 'N/A'}</td>
           <td>${user.jobTitle}</td>
-          <td>${user.phoneNumbers}</td>
-          <td>${user.address}</td>
+          <td>${user.phoneNumbers != null ? user.phoneNumbers : 'N/A'}</td>
           <td>
             <c:forEach var="role" items="${roles}">
               <c:if test="${role.roleId == user.roleId}">${role.roleName}</c:if>
@@ -574,7 +605,6 @@
         <th>Department</th>
         <th>Job Title</th>
         <th>Phone Numbers</th>
-        <th>Address</th>
         <th>Role</th>
         <th>Deletion Reason</th>
         <th>Deleted At</th>
@@ -590,8 +620,7 @@
           <td>${user.lastName}</td>
           <td>${user.deptName != null ? user.deptName : 'N/A'}</td>
           <td>${user.jobTitle}</td>
-          <td>${user.phoneNumbers}</td>
-          <td>${user.address}</td>
+          <td>${user.phoneNumbers != null ? user.phoneNumbers : 'N/A'}</td>
           <td>
             <c:forEach var="role" items="${roles}">
               <c:if test="${role.roleId == user.roleId}">${role.roleName}</c:if>

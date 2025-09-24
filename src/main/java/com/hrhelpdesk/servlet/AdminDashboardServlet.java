@@ -2,48 +2,46 @@ package com.hrhelpdesk.servlet;
 
 import com.hrhelpdesk.dao.DepartmentDAO;
 import com.hrhelpdesk.dao.RoleDAO;
-import com.hrhelpdesk.dao.UserDAO;
-import com.hrhelpdesk.model.Department;
-import com.hrhelpdesk.model.Role;
-import com.hrhelpdesk.model.User;
-
+import com.hrhelpdesk.service.UserService;
+import com.hrhelpdesk.model.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ArrayList;
 
 @WebServlet("/adminDashboard")
 public class AdminDashboardServlet extends HttpServlet {
     private static final List<String> JOB_TITLES = Arrays.asList("Executive Board", "Manager", "Secretary", "Team Leader", "Staff", "Intern");
+    private final UserService userService = new UserService();
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User user = (User) session.getAttribute("user");
-        if (user == null || user.getRoleId() != 4) {  // Check if admin
+        if (user == null || user.getRoleId() != 4) {
             response.sendRedirect("unauthorized.jsp");
             return;
         }
-
         try {
-            UserDAO userDAO = new UserDAO();
-            RoleDAO roleDAO = new RoleDAO();
-            DepartmentDAO deptDAO = new DepartmentDAO();
-            List<User> activeUsers = userDAO.getActiveUsers();
-            List<User> removedUsers = userDAO.getRemovedUsers();
+            List<User> activeUsers = userService.getActiveUsers();
+            List<User> removedUsers = userService.getRemovedUsers();
             for (User removedUser : removedUsers) {
                 if (removedUser.getDeletedBy() != 0) {
-                    User deleter = userDAO.getUserById(removedUser.getDeletedBy());
+                    User deleter = userService.getUserById(removedUser.getDeletedBy());
                     removedUser.setDeletedByUsername(deleter != null ? deleter.getUsername() : "Unknown");
                 } else {
                     removedUser.setDeletedByUsername("Unknown");
                 }
             }
+            RoleDAO roleDAO = new RoleDAO();
+            DepartmentDAO deptDAO = new DepartmentDAO();
             List<Role> roles = roleDAO.getAllRoles();
             List<Department> departments = deptDAO.getAllDepartments();
             request.setAttribute("activeUsers", activeUsers);
@@ -63,85 +61,65 @@ public class AdminDashboardServlet extends HttpServlet {
         String action = request.getParameter("action");
         HttpSession session = request.getSession();
         User currentUser = (User) session.getAttribute("user");
-        UserDAO userDAO = new UserDAO(); // Declare userDAO here to ensure it's accessible in catch block
-
+        if (currentUser == null || currentUser.getRoleId() != 4) {
+            response.sendRedirect("unauthorized.jsp");
+            return;
+        }
         try {
             if ("search".equals(action)) {
                 String employeeId = request.getParameter("employee_id");
-                User searchedUser = userDAO.getUserByEmployeeId(employeeId);
+                User searchedUser = userService.getUserByEmployeeId(employeeId);
                 if (searchedUser != null && !searchedUser.isDeleted()) {
                     request.setAttribute("searchedUser", searchedUser);
                 } else {
                     request.setAttribute("errorMessage", "No active user found with Employee ID: " + employeeId);
                 }
-                // Reload active users, removed users, roles, and departments
-                RoleDAO roleDAO = new RoleDAO();
-                DepartmentDAO deptDAO = new DepartmentDAO();
-                List<User> activeUsers = userDAO.getActiveUsers();
-                List<User> removedUsers = userDAO.getRemovedUsers();
-                for (User removedUser : removedUsers) {
-                    if (removedUser.getDeletedBy() != 0) {
-                        User deleter = userDAO.getUserById(removedUser.getDeletedBy());
-                        removedUser.setDeletedByUsername(deleter != null ? deleter.getUsername() : "Unknown");
-                    } else {
-                        removedUser.setDeletedByUsername("Unknown");
-                    }
-                }
-                List<Role> roles = roleDAO.getAllRoles();
-                List<Department> departments = deptDAO.getAllDepartments();
-                request.setAttribute("activeUsers", activeUsers);
-                request.setAttribute("removedUsers", removedUsers);
-                request.setAttribute("roles", roles);
-                request.setAttribute("departments", departments);
-                request.setAttribute("jobTitles", JOB_TITLES);
+                reloadDashboardData(request);
                 request.getRequestDispatcher("jsp/adminDashboard.jsp").forward(request, response);
             } else if ("remove".equals(action)) {
                 int userId = Integer.parseInt(request.getParameter("user_id"));
                 String reason = request.getParameter("reason");
-                userDAO.removeUser(userId, reason, currentUser.getUserId());
+                userService.removeUser(userId, reason, currentUser.getUserId());
                 response.sendRedirect("adminDashboard");
             } else if ("update".equals(action)) {
-                // Handle update user
                 int userId = Integer.parseInt(request.getParameter("user_id"));
-                User updatedUser = userDAO.getUserById(userId);
+                User updatedUser = userService.getUserById(userId);
                 if (updatedUser != null && !updatedUser.isDeleted()) {
                     updatedUser.setFirstName(request.getParameter("first_name"));
                     updatedUser.setLastName(request.getParameter("last_name"));
                     updatedUser.setEmail(request.getParameter("email"));
                     String deptIdStr = request.getParameter("dept_id");
-                    if (deptIdStr != null && !deptIdStr.isEmpty()) {
-                        updatedUser.setDeptId(Integer.parseInt(deptIdStr));
-                    } else {
-                        updatedUser.setDeptId(null);
-                    }
+                    updatedUser.setDeptId(deptIdStr != null && !deptIdStr.isEmpty() ? Integer.parseInt(deptIdStr) : null);
                     updatedUser.setJobTitle(request.getParameter("job_title"));
-                    updatedUser.setPhoneNumbers(request.getParameter("phone_numbers"));
+                    String phoneNumbersInput = request.getParameter("phone_numbers");
+                    updatedUser.setPhoneNumbers(phoneNumbersInput != null && !phoneNumbersInput.isEmpty() ?
+                            Arrays.asList(phoneNumbersInput.split("\\s*,\\s*")) : new ArrayList<>());
                     updatedUser.setAddress(request.getParameter("address"));
                     updatedUser.setRoleId(Integer.parseInt(request.getParameter("role_id")));
-                    userDAO.updateUser(updatedUser);
+                    userService.updateUser(updatedUser);
                     response.sendRedirect("adminDashboard");
                 } else {
                     request.setAttribute("errorMessage", "User not found or already deleted.");
-                    reloadDashboardData(request, userDAO);
+                    reloadDashboardData(request);
                     request.getRequestDispatcher("jsp/adminDashboard.jsp").forward(request, response);
                 }
             } else {
-                // Handle add user
-                User newUser = new User();
+                int roleId = Integer.parseInt(request.getParameter("role_id"));
+                User newUser = createUserInstance(roleId);
                 newUser.setUsername(request.getParameter("username"));
                 newUser.setEmail(request.getParameter("email"));
                 newUser.setFirstName(request.getParameter("first_name"));
                 newUser.setLastName(request.getParameter("last_name"));
                 String deptIdStr = request.getParameter("dept_id");
-                if (deptIdStr != null && !deptIdStr.isEmpty()) {
-                    newUser.setDeptId(Integer.parseInt(deptIdStr));
-                }
+                newUser.setDeptId(deptIdStr != null && !deptIdStr.isEmpty() ? Integer.parseInt(deptIdStr) : null);
                 newUser.setJobTitle(request.getParameter("job_title"));
-                newUser.setPhoneNumbers(request.getParameter("phone_numbers"));
+                String phoneNumbersInput = request.getParameter("phone_numbers");
+                newUser.setPhoneNumbers(phoneNumbersInput != null && !phoneNumbersInput.isEmpty() ?
+                        Arrays.asList(phoneNumbersInput.split("\\s*,\\s*")) : new ArrayList<>());
                 newUser.setAddress(request.getParameter("address"));
-                newUser.setRoleId(Integer.parseInt(request.getParameter("role_id")));
+                newUser.setRoleId(roleId);
                 String plainPassword = request.getParameter("password");
-                userDAO.addUser(newUser, plainPassword);
+                userService.addUser(newUser, plainPassword);
                 response.sendRedirect("adminDashboard");
             }
         } catch (SQLException e) {
@@ -153,7 +131,7 @@ public class AdminDashboardServlet extends HttpServlet {
                             "Database error occurred. Please try again.";
             request.setAttribute("errorMessage", errorMessage);
             try {
-                reloadDashboardData(request, userDAO);
+                reloadDashboardData(request);
             } catch (SQLException ex) {
                 ex.printStackTrace();
                 request.setAttribute("errorMessage", "Error reloading data: " + ex.getMessage());
@@ -162,11 +140,11 @@ public class AdminDashboardServlet extends HttpServlet {
         }
     }
 
-    private void reloadDashboardData(HttpServletRequest request, UserDAO userDAO) throws SQLException {
+    private void reloadDashboardData(HttpServletRequest request) throws SQLException {
+        List<User> activeUsers = userService.getActiveUsers();
+        List<User> removedUsers = userService.getRemovedUsers();
         RoleDAO roleDAO = new RoleDAO();
         DepartmentDAO deptDAO = new DepartmentDAO();
-        List<User> activeUsers = userDAO.getActiveUsers();
-        List<User> removedUsers = userDAO.getRemovedUsers();
         List<Role> roles = roleDAO.getAllRoles();
         List<Department> departments = deptDAO.getAllDepartments();
         request.setAttribute("activeUsers", activeUsers);
@@ -175,4 +153,16 @@ public class AdminDashboardServlet extends HttpServlet {
         request.setAttribute("departments", departments);
         request.setAttribute("jobTitles", JOB_TITLES);
     }
+
+    private User createUserInstance(int roleId) {
+        switch (roleId) {
+            case 1: return new Employee();
+            case 2: return new HRStaff();
+            case 3: return new HRManager();
+            case 4: return new Admin();
+            case 5: return new CompanyManagement();
+            default: throw new IllegalArgumentException("Unknown role ID: " + roleId);
+        }
+    }
 }
+

@@ -94,8 +94,13 @@ public class SubmitTicketServlet extends HttpServlet {
                     case "PROMOTION_TRANSFER_TICKET":
                         String requestType = request.getParameter("request_type");
                         String reason = request.getParameter("reason");
+                        String targetDeptStr = request.getParameter("target_dept");
+                        Integer targetDeptId = null;
+                        if (targetDeptStr != null && !targetDeptStr.trim().isEmpty()) {
+                            targetDeptId = Integer.parseInt(targetDeptStr);
+                        }
                         if (requestType != null && reason != null) {
-                            ticketDAO.insertPromotionTransferTicket(ticketId, requestType, reason);
+                            ticketDAO.insertPromotionTransferTicket(ticketId, requestType, reason, targetDeptId);
                         }
                         break;
                     default:

@@ -1,9 +1,9 @@
 package com.hrhelpdesk.servlet;
 
 import com.hrhelpdesk.dao.TicketCategoryDAO;
-import com.hrhelpdesk.dao.TicketDAO;
-import com.hrhelpdesk.dao.UserDAO;
-import com.hrhelpdesk.model.Ticket;
+import com.hrhelpdesk.dao.DepartmentDAO;
+import com.hrhelpdesk.service.UserService;
+import com.hrhelpdesk.model.Department;
 import com.hrhelpdesk.model.TicketCategory;
 import com.hrhelpdesk.model.User;
 
@@ -23,7 +23,7 @@ public class TicketFormServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User user = (User) session.getAttribute("user");
-        if (user == null || user.getRoleId() != 1) {  // Assuming roleId 1 is Employee
+        if (user == null || user.getRoleId() != 1) {
             response.sendRedirect("unauthorized.jsp");
             return;
         }
@@ -33,9 +33,13 @@ public class TicketFormServlet extends HttpServlet {
             List<TicketCategory> categories = categoryDAO.getAllCategories();
             request.setAttribute("categories", categories);
 
-            UserDAO userDAO = new UserDAO();
-            List<User> users = userDAO.getActiveUsers();
+            UserService userService = new UserService();
+            List<User> users = userService.getActiveUsers(); // For against_user_id in complaints
             request.setAttribute("users", users);
+
+            DepartmentDAO deptDAO = new DepartmentDAO();
+            List<Department> departments = deptDAO.getAllDepartments();
+            request.setAttribute("departments", departments);
         } catch (SQLException e) {
             e.printStackTrace();
             request.setAttribute("error", "Failed to load form data.");

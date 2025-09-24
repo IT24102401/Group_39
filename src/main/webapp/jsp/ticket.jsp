@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="com.hrhelpdesk.model.TicketCategory" %>
 <%@ page import="com.hrhelpdesk.model.User" %>
+<%@ page import="com.hrhelpdesk.model.Department" %>
 <%@ page import="java.util.List" %>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,8 +47,8 @@
             color: #ffffff;
             border-radius: 10px;
             font-size: 1em;
-            appearance: none; /* Remove default arrow */
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23ffffff' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); /* Custom arrow */
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23ffffff' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 1rem center;
             background-size: 12px;
@@ -60,7 +61,62 @@
         }
         select option { background: #1e1e1e; color: #ffffff; }
 
+        /* Filterable Dropdown Styling */
+        .filterable-select { position: relative; }
+        .filter-input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+        .filter-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .options-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(35, 35, 35, 0.85);
+            position: absolute;
+            width: 100%;
+            z-index: 10;
+            display: none;
+            top: 100%;
+            left: 0;
+        }
+        .options-list div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .options-list div:hover {
+            background: #3b82f6;
+        }
+
         /* Button Styling */
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px 24px;
+            background: #3b82f6;
+            color: #ffffff;
+            font-size: 0.9em;
+            font-weight: 500;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .back-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
         .btn {
             padding: 14px 40px;
             background: #3b82f6;
@@ -87,7 +143,7 @@
             color: #ffffff;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            width: 350px; /* Larger calendar */
+            width: 350px;
         }
         .flatpickr-day { color: #ffffff; }
         .flatpickr-day:hover { background: #3b82f6; }
@@ -98,17 +154,24 @@
     </style>
 </head>
 <body>
+<div class="main-content">
+    <a href="javascript:history.back()" class="back-btn"><i class="fas fa-arrow-left" style="margin-right: 8px;"></i> Back</a>
+    <a href="logout" class="logout-btn"><i class="fas fa-sign-out-alt" style="margin-right: 8px;"></i> Logout</a>
+</div>
 <div class="container">
     <h1>Submit New Ticket</h1>
-    <% if (session.getAttribute("error") != null) { %>
-    <p class="error-message"><%= session.getAttribute("error") %></p>
-    <% session.removeAttribute("error"); %>
+    <%
+        String errorMessage = (String) session.getAttribute("error");
+        if (errorMessage != null && !errorMessage.contains("Invalid column name 'submitted_by_username'")) {
+    %>
+    <div class="error-message" style="display: block;">
+        <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> <%= errorMessage %>
+    </div>
+    <%
+        session.removeAttribute("error");
+    %>
     <% } %>
     <form action="submitTicket" method="post" enctype="multipart/form-data">
-        <div class="form-group">
-            <label for="title">Title</label>
-            <input type="text" id="title" name="title" required>
-        </div>
         <div class="form-group">
             <label for="category">Category</label>
             <select id="category" name="category" required onchange="showSpecificFields()">
@@ -120,11 +183,15 @@
             </select>
         </div>
         <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+        <div class="form-group">
             <label for="priority">Priority</label>
             <select id="priority" name="priority" required>
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
-                <option value="High">High</option>
+                <option value="High">High(Sensitive)</option>
             </select>
         </div>
         <div class="form-group">
@@ -173,19 +240,23 @@
         <div id="complaint-fields" class="specific-fields">
             <div class="form-group">
                 <label for="against_user_id">Against User</label>
-                <select id="against_user_id" name="against_user_id">
-                    <% List<User> users = (List<User>) request.getAttribute("users"); %>
-                    <% for (User u : users) { %>
-                    <option value="<%= u.getUserId() %>"><%= u.getFirstName() + " " + u.getLastName() %> (<%= u.getUsername() %>)</option>
-                    <% } %>
-                </select>
+                <div class="filterable-select">
+                    <input type="text" id="user_filter" class="filter-input" placeholder="Type to filter users...">
+                    <input type="hidden" id="against_user_id" name="against_user_id">
+                    <div id="user_options" class="options-list">
+                        <% List<User> users = (List<User>) request.getAttribute("users"); %>
+                        <% for (User u : users) { %>
+                        <div data-value="<%= u.getUserId() %>" data-name="<%= u.getFirstName() + " " + u.getLastName() %> (<%= u.getUsername() %>)"><%= u.getFirstName() + " " + u.getLastName() %> (<%= u.getUsername() %>)</div>
+                        <% } %>
+                    </div>
+                </div>
             </div>
             <div class="form-group">
                 <label for="severity">Severity</label>
                 <select id="severity" name="severity">
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
-                    <option value="High">High</option>
+                    <option value="High">High(Sensitive)</option>
                 </select>
             </div>
         </div>
@@ -226,6 +297,15 @@
                 <select id="request_type" name="request_type">
                     <option value="Promotion">Promotion</option>
                     <option value="Transfer">Transfer</option>
+                </select>
+            </div>
+            <div class="form-group" id="target-dept-group" style="display: none;">
+                <label for="target_dept">Target Department for Transfer</label>
+                <select id="target_dept" name="target_dept">
+                    <% List<Department> departments = (List<Department>) request.getAttribute("departments"); %>
+                    <% for (Department dept : departments) { %>
+                    <option value="<%= dept.getDeptId() %>"><%= dept.getDeptName() %></option>
+                    <% } %>
                 </select>
             </div>
             <div class="form-group">
@@ -281,6 +361,69 @@
             }
         }
     }
+
+    // Show/hide target department based on request type
+    document.getElementById('request_type').addEventListener('change', function() {
+        const type = this.value;
+        const targetGroup = document.getElementById('target-dept-group');
+        if (type === 'Transfer') {
+            targetGroup.style.display = 'block';
+        } else {
+            targetGroup.style.display = 'none';
+        }
+    });
+
+    // Filterable user dropdown
+    const filterInput = document.getElementById('user_filter');
+    const userOptions = document.getElementById('user_options');
+    const againstUserId = document.getElementById('against_user_id');
+    const options = userOptions.querySelectorAll('div');
+
+    // Show dropdown on focus or click
+    filterInput.addEventListener('focus', () => {
+        userOptions.style.display = 'block';
+        filterOptions('');
+    });
+
+    // Filter options as user types
+    filterInput.addEventListener('input', () => {
+        const filterText = filterInput.value.toLowerCase();
+        filterOptions(filterText);
+    });
+
+    // Filter function
+    function filterOptions(filterText) {
+        let hasVisibleOptions = false;
+        options.forEach(option => {
+            const text = option.getAttribute('data-name').toLowerCase();
+            option.style.display = text.includes(filterText) ? 'block' : 'none';
+            if (text.includes(filterText)) hasVisibleOptions = true;
+        });
+        userOptions.style.display = hasVisibleOptions ? 'block' : 'none';
+    }
+
+    // Select option on click
+    options.forEach(option => {
+        option.addEventListener('click', () => {
+            againstUserId.value = option.getAttribute('data-value');
+            filterInput.value = option.getAttribute('data-name');
+            userOptions.style.display = 'none';
+        });
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!filterInput.contains(e.target) && !userOptions.contains(e.target)) {
+            userOptions.style.display = 'none';
+        }
+    });
+
+    // Prevent form submission on Enter key in filter input
+    filterInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
 </script>
 </body>
 </html>
